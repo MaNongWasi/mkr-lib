@@ -266,5 +266,8 @@ void GSMServer::handleUrc(const String& urc)
         break;
       }
     }
-  }
+  }/*  else if (urc.startsWith("+UUPSDD: ")) {
+	//PSD Deactivated close sockets
+	stop();
+  }*/
 }

@@ -40,7 +40,7 @@ public:
   void debug();
   void noDebug();
 
-  int autosense(unsigned int timeout = 10000);
+  int autosense(int timeout = 10000);
 
   int noop();
   int reset();
@@ -49,14 +49,12 @@ public:
   int noLowPowerMode();
 
   size_t write(uint8_t c);
-  size_t write(const uint8_t*, size_t);
 
   void send(const char* command);
   void send(const String& command) { send(command.c_str()); }
   void sendf(const char *fmt, ...);
 
   int waitForResponse(unsigned long timeout = 100, String* responseDataStorage = NULL);
-  int waitForPrompt(unsigned long timeout = 500);
   int ready();
   void poll();
   void setResponseDataStorage(String* responseDataStorage);
@@ -67,10 +65,10 @@ public:
 private:
   Uart* _uart;
   unsigned long _baud;
+  unsigned long _uartMillis;
   int _resetPin;
   int _dtrPin;
   bool _lowPowerMode;
-  unsigned long _lastResponseOrUrcMillis;
 
   enum {
     AT_COMMAND_IDLE,

@@ -46,8 +46,7 @@ enum {
 GSM::GSM(bool debug) :
   _state(ERROR),
   _readyState(0),
-  _pin(NULL),
-  _timeout(0)
+  _pin(NULL)
 {
   if (debug) {
     MODEM.debug();
@@ -64,14 +63,7 @@ GSM3_NetworkStatus_t GSM::begin(const char* pin, bool restart, bool synchronous)
     _readyState = READY_STATE_CHECK_SIM;
 
     if (synchronous) {
-      unsigned long start = millis();
-
       while (ready() == 0) {
-        if (_timeout && !((millis() - start) < _timeout)) {
-          _state = ERROR;
-          break;
-        }
-
         delay(100);
       }
     } else {
@@ -100,22 +92,25 @@ int GSM::isAccessAlive()
 
 bool GSM::shutdown()
 {
-  if (_state == GSM_READY) {
-    MODEM.send("AT+CPWROFF");
-    MODEM.waitForResponse(40000);
+  MODEM.send("AT+CPWROFF");
+
+  if (MODEM.waitForResponse(40000) == 1) {
+    MODEM.end();
+
+    return true;
   }
-  MODEM.end();
-  _state = GSM_OFF;
-  return true;
+
+  return false;
 }
 
 bool GSM::secureShutdown()
 {
   MODEM.end();
-  _state = GSM_OFF;
+
   return true;
 }
 
+  	
 int GSM::ready()
 {
   if (_state == ERROR) {
@@ -128,8 +123,16 @@ int GSM::ready()
     return 0;
   }
 
+// CHECK wether begin lasts more than 30 seconds.
+  if(_readyState!=READY_STATE_CHECK_SIM && _readyState!=READY_STATE_DONE && millis()-_processMillis>30000) {
+    _state = ERROR;
+    ready = 2;
+    return ready;
+  }
+
   switch (_readyState) {
     case READY_STATE_CHECK_SIM: {
+      _processMillis=millis(); // Set start time.
       MODEM.setResponseDataStorage(&_response);
       MODEM.send("AT+CPIN?");
       _readyState = READY_STATE_WAIT_CHECK_SIM_RESPONSE;
@@ -188,7 +191,7 @@ int GSM::ready()
       MODEM.send("AT+CMGF=1");
       _readyState = READY_STATE_WAIT_SET_PREFERRED_MESSAGE_FORMAT_RESPONSE;
       ready = 0;
-      break;
+      break; 
     }
 
     case READY_STATE_WAIT_SET_PREFERRED_MESSAGE_FORMAT_RESPONSE: {
@@ -207,7 +210,7 @@ int GSM::ready()
       MODEM.send("AT+UDCONF=1,1");
       _readyState = READY_STATE_WAIT_SET_HEX_MODE;
       ready = 0;
-      break;
+      break; 
     }
 
     case READY_STATE_WAIT_SET_HEX_MODE: {
@@ -226,9 +229,9 @@ int GSM::ready()
       MODEM.send("AT+CTZU=1");
       _readyState = READY_STATE_WAIT_SET_AUTOMATIC_TIME_ZONE_RESPONSE;
       ready = 0;
-      break;
+      break; 
     }
-
+  
     case READY_STATE_WAIT_SET_AUTOMATIC_TIME_ZONE_RESPONSE: {
       if (ready > 1) {
         _state = ERROR;
@@ -245,7 +248,7 @@ int GSM::ready()
       MODEM.send("AT+UDTMFD=1,2");
       _readyState = READY_STATE_WAIT_ENABLE_DTMF_DETECTION_RESPONSE;
       ready = 0;
-      break;
+      break; 
     }
 
     case READY_STATE_WAIT_ENABLE_DTMF_DETECTION_RESPONSE: {
@@ -265,7 +268,7 @@ int GSM::ready()
       MODEM.send("AT+CREG?");
       _readyState = READY_STATE_WAIT_CHECK_REGISTRATION_RESPONSE;
       ready = 0;
-      break;
+      break; 
     }
 
     case READY_STATE_WAIT_CHECK_REGISTRATION_RESPONSE: {
@@ -289,7 +292,7 @@ int GSM::ready()
         } else if (status == 3) {
           _state = ERROR;
           ready = 2;
-        }
+        } 
       }
 
       break;
@@ -321,11 +324,6 @@ int GSM::ready()
   return ready;
 }
 
-void GSM::setTimeout(unsigned long timeout)
-{
-  _timeout = timeout;
-}
-
 unsigned long GSM::getTime()
 {
   String response;
@@ -355,25 +353,6 @@ unsigned long GSM::getTime()
   return 0;
 }
 
-unsigned long GSM::getLocalTime()
-{
-  String response;
-
-  MODEM.send("AT+CCLK?");
-  if (MODEM.waitForResponse(100, &response) != 1) {
-    return 0;
-  }
-
-  struct tm now;
-
-  if (strptime(response.c_str(), "+CCLK: \"%y/%m/%d,%H:%M:%S", &now) != NULL) {
-    time_t result = mktime(&now);
-    return result;
-  }
-
-  return 0;
-}
-
 int GSM::lowPowerMode()
 {
   return MODEM.lowPowerMode();
@@ -382,9 +361,4 @@ int GSM::lowPowerMode()
 int GSM::noLowPowerMode()
 {
   return MODEM.noLowPowerMode();
-}
-
-GSM3_NetworkStatus_t GSM::status()
-{
-  return _state;
 }

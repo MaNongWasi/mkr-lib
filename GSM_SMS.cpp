@@ -149,7 +149,7 @@ int GSM_SMS::available()
       _smsDataEndIndex = _incomingBuffer.length() - 1;
     }
 
-    return (_smsDataEndIndex - _smsDataIndex) + 1;
+    return (_smsDataEndIndex - _smsDataIndex);
   } else {
     _incomingBuffer = "";
   }
